@@ -1,5 +1,6 @@
-#!/usr/bin/env python
-# this file is a copy of influxdb -> python/scripts/mp-fetcher.py, and changed locally
+'''
+This file is used to fetch data fra azure data lake to influx db
+'''
 import argparse
 import json
 import logging
@@ -16,7 +17,6 @@ from azure_statoil_walker.azure_statoil_walker import read_df_from_azure, walk_a
 
 from wind_json_walker.wind_json_walker import read_wind_json_as_df, walk_the_street
 from helper import Helper
-
 logger = multiprocessing.log_to_stderr()
 logger.setLevel(logging.WARN)
 
@@ -75,7 +75,6 @@ def parse_args():
     parser.add_argument('--exclude', type=str, required=False, default="a^",
                         help='Regexp of files to exclude when doing recursive download')
     parser.add_argument('--base-path', type=str, required=False,
-                        #default='/raw/corporate/Aspen%20MS%20-%20IP21%20Troll%20C/sensordata/1776-TROC',
                         default='/raw/corporate/Aspen MS - IP21 Grane/sensordata/1755-GRA',
                         help='Base path of either recursive search or tags')
     parser.add_argument('--wind-files', type=str, required=False,
@@ -86,27 +85,12 @@ def parse_args():
                         help='Azure data store name')
     parser.add_argument('--para', type=int, required=False, default=16,
                         help='Level of parallelization to use')
-    parser.add_argument('--dry-run', required=False, action='store_true', default=True,
+    parser.add_argument('--dry-run', required=False, action='store_true', default=False,
                         help='Dry run? (Only show files which would have been imported, but don\'t do it)')
     parser.add_argument('--token-cache', type=str, required=False, default=None,
                         help='File to cache the azure token in. If it exists, use it as a token, '
                              'otherwise store token in it.')
     return parser.parse_args()
-
-
-def extract_tags_from_df(data_frame):
-    """Leftmost column should be well name, column names should be metric_type(e.g gassrate), and as elements the
-    actual sensor names. Returns a dict from sensor names to a dictionary of its well-name and
-    column-name (metric_type)"""
-    res = dict()
-    for row in data_frame.itertuples():
-        row_dict = row._asdict()
-        del row_dict['Index']
-        first_column_name, first_colum_val = row_dict.popitem(last=False)
-        for measurement_name, tag_name in row_dict.items():
-            res[tag_name] = {first_column_name: first_colum_val, "metric_type": measurement_name}
-    return res
-
 
 def main():
     args = parse_args()
@@ -149,15 +133,7 @@ def main():
 
     tag_map = dict() # A map from a Statoil tag (name of a measurement) to the influx-tags for it (e.g. well-name etc)
 
-    if args.wind_files:  # local wind json files
-        generator = walk_the_street(args.wind_files, args.include, args.exclude)
-        for file_path, measurement_tags in generator:
-            if dry_run:
-                print("DRY RUN Tag {}, path {}".format(measurement_tags, file_path))
-            else:
-                pool.apply_async(read_and_push_wind_json,
-                                 (file_path, measurement_tags, influx_settings,))
-    else:  # Azure stuff
+    if True:  # Azure stuff
         crawling = not (args.taglist or args.tagframe)  # Will we be crawling for tags, or read them from file
         live_run = not dry_run
         if live_run or crawling:
@@ -185,13 +161,6 @@ def main():
                 with open(filename) as f:
                     tag_list = f.readlines()
                     tag_list = [x.strip() for x in tag_list]
-            else:
-                logger.debug("Attempting to parse tags and metadata from the tagframe %s" % args.tagframe)
-                df = pd.read_csv(args.tagframe, sep=";")
-                tag_map = extract_tags_from_df(df)
-                tag_list = [str(x).strip() for x in tag_map.keys()]
-                if 'nan' in tag_list:
-                    tag_list.remove('nan')
             generator = walk_tags(base_path, tag_list, years)
         else:  # Crawling
             generator = walk_and_tag_azure(base_path, azure_data_store, token, args.include, args.exclude)
@@ -215,13 +184,6 @@ def main():
 
     after = timeit.default_timer()
     print("Processing took %s seconds" % (after - before))
-
-
-def read_and_push_wind_json(path, tags, influx_settings):
-    df = read_wind_json_as_df(path)
-    (host, port, user, password, db_name, batch_size) = influx_settings
-    logger.debug("Attempting to send the wind-df from path %s" % path)
-    write_to_influx(df, tags, host, port, user, password, db_name, batch_size, time_precision="ms")
 
 
 def walk_tags(base_path, tag_list, years):

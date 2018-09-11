@@ -11,3 +11,11 @@ class Constants:
 
     DATA_FOLDER_NAME= 'data'
     DATA_LAKE_STORE='dataplatformdlsprod'
+    INFLUX_DB_HOST='localhost'
+    INFLUX_DB_PORT='8086'
+    INFLUX_DB_NAME='data'
+    INFLUX_DB_USER='admin'
+
+
+
+
