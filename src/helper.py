@@ -1,29 +1,24 @@
-import os
 from constants import Constants
-class Helper:
+import os
+
+
+def getProjectRootPath():
     '''
-    this class defines the utility functions
+    :return: project root folder path
+    '''
+    currPath=os.path.dirname(os.path.realpath(__file__))
+    while not currPath.endswith(Constants.SRC_FOLDER_NAME) :
+        currPath=os.path.dirname(currPath)
+    return os.path.dirname(currPath)
+
+def getDataFolderPath():
     '''
 
-    @staticmethod
-    def getProjectRoot():
-        '''
-        this function finds the project root folder given that the src folder is the first level sub-folder
-        in the project
-        :return:
-        '''
-        cur_dir_path_ = os.path.dirname(os.path.realpath(__file__))
-        while not cur_dir_path_.endswith('src'):
-            cur_dir_path_ = os.path.abspath(os.path.join(cur_dir_path_, os.pardir))
-        cur_dir_path_=os.path.abspath(os.path.join(cur_dir_path_, os.pardir))
-        return cur_dir_path_
+    :return: data folder absolute path
+    '''
+    return os.path.join(getProjectRootPath(),Constants.DATA_FOLDER_NAME)
 
-    @staticmethod
-    def getDataFolderPath():
-        project_path=Helper.getProjectRoot()
-        return os.path.join(project_path, Constants.DATA_FOLDER_NAME)
 
 if __name__ == '__main__':
-    print(Helper.getProjectRoot())
-    print(Helper.getDataFolderPath())
-    print(Helper.getDBConnStr())
+    print(getProjectRootPath())
+    print(getDataFolderPath())

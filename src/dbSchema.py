@@ -3,8 +3,8 @@ class DBSchema:
     RETENTION_POLICY='autogen'
     MEASUREMENT='data'
 
-    TAGKEY_PLANT='plant'
-    TAGKEY_TAG='tag'
+    TAGKEY_PLANT='plant' # value on this tag shall be the shortname of a plant. Plant.shortName
+    TAGKEY_TAG='tag' # the ims tag name, calculated or predicted tag name
 
     TAGKEY_TAGTYPE='tagtype'
     TAGVALUE_TAGTYPE_IMS='ims'

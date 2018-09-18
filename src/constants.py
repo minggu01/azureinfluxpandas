@@ -1,3 +1,5 @@
+from plant import PlantRegistry
+
 '''
 Created on 4. sep. 2017
 
@@ -10,11 +12,16 @@ class Constants:
     '''
 
     DATA_FOLDER_NAME= 'data'
+    SRC_FOLDER_NAME='src'
+
     DATA_LAKE_STORE='dataplatformdlsprod'
     INFLUX_DB_HOST='localhost'
     INFLUX_DB_PORT='8086'
     INFLUX_DB_NAME='data'
     INFLUX_DB_USER='admin'
+
+    WORKING_PLANT=PlantRegistry.GRANE
+
 
 
 

@@ -8,15 +8,15 @@ import timeit
 
 import multiprocessing
 import os
-import pandas as pd
 from azure.datalake.store import lib
 from azure.datalake.store.lib import DataLakeCredential
 from influxdb import DataFrameClient
 
 from azure_statoil_walker.azure_statoil_walker import read_df_from_azure, walk_and_tag_azure
+from constants import Constants
 
-from wind_json_walker.wind_json_walker import read_wind_json_as_df, walk_the_street
-from helper import Helper
+from helper import getDataFolderPath
+from dbSchema import DBSchema
 logger = multiprocessing.log_to_stderr()
 logger.setLevel(logging.WARN)
 
@@ -42,6 +42,11 @@ def azure_fetch_and_push_to_influx(token, azure_data_store, file_path, tag_map, 
 
 
 def parse_args():
+    influxAdminPass=os.environ['INFLUX_ADMIN_PASSWORD']
+    tagListFile="GRA_23_CT_0001"
+    starting_year="2010"
+    ending_year="2019"
+
     """Parse the args from main."""
     parser = argparse.ArgumentParser(
         description='example code to play with InfluxDB',
@@ -49,44 +54,37 @@ def parse_args():
     parser.add_argument('--debug', required=False, action='store_true',
                         help='Run in debug mode (turns on extra logging)')
     parser.add_argument('--host', type=str, required=False,
-                        default='localhost',
+                        default=Constants.INFLUX_DB_HOST,
                         help='hostname of InfluxDB http API')
     parser.add_argument('--dbname', type=str, required=False,
-                        default='data',
+                        default=Constants.INFLUX_DB_NAME,
                         help='Influxdb database name')
-    parser.add_argument('--port', type=int, required=False, default=8086,
+    parser.add_argument('--port', type=int, required=False, default=Constants.INFLUX_DB_PORT,
                         help='port of InfluxDB http API')
-    parser.add_argument('--user', type=str, required=False, default="admin",
+    parser.add_argument('--user', type=str, required=False, default=Constants.WORKING_PLANT,
                         help='Username for influxdb')
-    parser.add_argument('--password', type=str, required=False, default="admin",
+    parser.add_argument('--password', type=str, required=False, default=influxAdminPass,
                         help='Password for influxdb')
     parser.add_argument('--batch-size', type=int, required=False, default=10000,
                         help='Batch size towards influxdb')
-    parser.add_argument('--taglist', type=str, required=False, default="GRA_23_CT_0001",
+    parser.add_argument('--taglist', type=str, required=False, default=tagListFile,
                         help='File with list of tags to download. If false do recursive downloads of all')
-    parser.add_argument('--tagframe', type=str, required=False, default=None,
-                        help='CSV of tags and type of measurment')
-    parser.add_argument('--from-year', type=int, required=False, default=2010,
+    parser.add_argument('--from-year', type=int, required=False, default=starting_year,
                         help='Lower bound of year to include from taglist')
-    parser.add_argument('--to-year', type=int, required=False, default=2019,
+    parser.add_argument('--to-year', type=int, required=False, default=ending_year,
                         help='Upper bound of year to include from taglist')
     parser.add_argument('--include', type=str, required=False, default=".*",
                         help='Regexp of files to include when doing recursive download')
     parser.add_argument('--exclude', type=str, required=False, default="a^",
                         help='Regexp of files to exclude when doing recursive download')
     parser.add_argument('--base-path', type=str, required=False,
-                        default='/raw/corporate/Aspen MS - IP21 Grane/sensordata/1755-GRA',
+                        default=Constants.WORKING_PLANT.datalakeBase,
                         help='Base path of either recursive search or tags')
-    parser.add_argument('--wind-files', type=str, required=False,
-                        default=None,
-                        help='Directory with wind json-files')
     parser.add_argument('--data_store_name', type=str, required=False,
-                        default='dataplatformdlsprod',
+                        default=Constants.DATA_LAKE_STORE,
                         help='Azure data store name')
     parser.add_argument('--para', type=int, required=False, default=16,
                         help='Level of parallelization to use')
-    parser.add_argument('--dry-run', required=False, action='store_true', default=False,
-                        help='Dry run? (Only show files which would have been imported, but don\'t do it)')
     parser.add_argument('--token-cache', type=str, required=False, default=None,
                         help='File to cache the azure token in. If it exists, use it as a token, '
                              'otherwise store token in it.')
@@ -99,7 +97,6 @@ def main():
 
     parallelization = args.para
     base_path = args.base_path
-    dry_run = args.dry_run
 
     years = range(args.from_year, args.to_year)
 
@@ -117,16 +114,6 @@ def main():
 
     influx_settings = (host, port, user, password, db_name, batch_size)
 
-    if not dry_run:
-        client = DataFrameClient(host, port, user, password, db_name)
-        ##client.create_database(db_name)
-        # https://docs.influxdata.com/influxdb/v1.4/concepts/schema_and_data_layout/#shard-group-duration-management
-        # In fact, increasing the shard group duration beyond the default seven day value can improve compression,
-        # improve write speed, and decrease the fixed iterator overhead per shard group. Shard group durations of 50
-        # years and over, for example, are acceptable configurations.
-        ##client.query('ALTER RETENTION POLICY autogen ON {} SHARD DURATION 9000w'.format(db_name))
-
-    # Should probably set maxtasksperchild = 10, but is only available in multiprocessing 2.7, and we have 2.6
     pool = multiprocessing.Pool(parallelization)
 
     before = timeit.default_timer()
@@ -135,8 +122,7 @@ def main():
 
     if True:  # Azure stuff
         crawling = not (args.taglist or args.tagframe)  # Will we be crawling for tags, or read them from file
-        live_run = not dry_run
-        if live_run or crawling:
+        if crawling:
             if args.token_cache:
                 try:
                     logger.debug("Attempting to open token cache %s" % args.token_cache)
@@ -153,11 +139,11 @@ def main():
             else:
                 token = lib.auth()
 
-        if args.taglist or args.tagframe:
+        if args.taglist:
             if args.taglist:
                 logger.debug("Attempting to parse tags from the taglist %s" % args.taglist)
                 filename=args.taglist
-                filename=os.path.join(Helper.getDataFolderPath(),filename)
+                filename=os.path.join(getDataFolderPath(),filename)
                 with open(filename) as f:
                     tag_list = f.readlines()
                     tag_list = [x.strip() for x in tag_list]
@@ -166,17 +152,12 @@ def main():
             generator = walk_and_tag_azure(base_path, azure_data_store, token, args.include, args.exclude)
 
         for file_path, tag in generator:
-            #measurement_tags = dict(tag_map.get(tag, dict()))
             measurement_tags = dict()
-            measurement_tags.update({'tag': tag})
-            measurement_tags.update({'plant':'GRA'})
-            measurement_tags.update({'tagtype': 'ims'})
-            measurement_tags.update({'datatype': 'raw'})
-
-            if dry_run:
-                print("DRY RUN Tag {}, path {}".format(measurement_tags, file_path))
-            else:
-                pool.apply_async(azure_fetch_and_push_to_influx,
+            measurement_tags.update({DBSchema.TAGKEY_TAG: tag})
+            measurement_tags.update({DBSchema.TAGKEY_PLANT:Constants.WORKING_PLANT.shortName})
+            measurement_tags.update({DBSchema.TAGKEY_TAGTYPE: DBSchema.TAGVALUE_TAGTYPE_IMS})
+            measurement_tags.update({DBSchema.TAGKEY_DATATYPE: DBSchema.TAGVALUE_DATATYPE_RAW})
+            pool.apply_async(azure_fetch_and_push_to_influx,
                                  (token, azure_data_store, file_path, measurement_tags, influx_settings,))
 
     pool.close()
