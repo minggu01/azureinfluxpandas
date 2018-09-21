@@ -1,7 +1,6 @@
 
 from azure_statoil_walker.azure_statoil_walker import *
 from plant import Plant,PlantRegistry
-from helper import getDataFolderPath
 from azure.datalake.store import core, lib, multithread
 from constants import Constants
 from helper import getDataFolderPath
@@ -18,7 +17,7 @@ def authenticate():
 def load_one_file_example():
     token = authenticate()
     df=read_df_from_azure('dataplatformdlsprod','/raw/corporate/PI%20System%20Manager%20Sleipner/sensordata/1142-SLB/W-21-LT___039_/W-21-LT___039__2013.csv',token)
-    print(len(df))
+    print(df.size())
 
 
 def readTagAndFileURL(plant:Plant):

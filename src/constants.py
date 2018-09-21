@@ -18,7 +18,7 @@ class Constants:
     INFLUX_DB_HOST='localhost'
     INFLUX_DB_PORT='8086'
     INFLUX_DB_NAME='data'
-    INFLUX_DB_USER='admin'
+    INFLUX_DB_USER='root'
 
     WORKING_PLANT=PlantRegistry.GRANE
 

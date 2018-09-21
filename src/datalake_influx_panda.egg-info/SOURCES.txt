@@ -1,0 +1,7 @@
+README.md
+setup.py
+src/datalake_influx_panda.egg-info/PKG-INFO
+src/datalake_influx_panda.egg-info/SOURCES.txt
+src/datalake_influx_panda.egg-info/dependency_links.txt
+src/datalake_influx_panda.egg-info/requires.txt
+src/datalake_influx_panda.egg-info/top_level.txt

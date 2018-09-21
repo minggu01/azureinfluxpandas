@@ -61,7 +61,7 @@ def parse_args():
                         help='Influxdb database name')
     parser.add_argument('--port', type=int, required=False, default=Constants.INFLUX_DB_PORT,
                         help='port of InfluxDB http API')
-    parser.add_argument('--user', type=str, required=False, default=Constants.WORKING_PLANT,
+    parser.add_argument('--user', type=str, required=False, default=Constants.INFLUX_DB_USER,
                         help='Username for influxdb')
     parser.add_argument('--password', type=str, required=False, default=influxAdminPass,
                         help='Password for influxdb')
@@ -118,47 +118,43 @@ def main():
 
     before = timeit.default_timer()
 
-    tag_map = dict() # A map from a Statoil tag (name of a measurement) to the influx-tags for it (e.g. well-name etc)
 
-    if True:  # Azure stuff
-        crawling = not (args.taglist or args.tagframe)  # Will we be crawling for tags, or read them from file
-        if crawling:
-            if args.token_cache:
-                try:
-                    logger.debug("Attempting to open token cache %s" % args.token_cache)
-                    with open(args.token_cache, 'r') as f:
-                        token_dict = json.load(f)
-                        token = DataLakeCredential(token_dict)
-                        logger.debug("Token cache read from %s" % args.token_cache)
-                except (IOError, ValueError):
-                    logger.debug("Error when opening token cache, creating new token")
-                    token = lib.auth()
-                    token_dict = token.token
-                    with open(args.token_cache, 'w') as f:
-                        json.dump(token_dict, f)
-            else:
-                token = lib.auth()
+    if args.token_cache:
+        try:
+            logger.debug("Attempting to open token cache %s" % args.token_cache)
+            with open(args.token_cache, 'r') as f:
+                token_dict = json.load(f)
+                token = DataLakeCredential(token_dict)
+                logger.debug("Token cache read from %s" % args.token_cache)
+        except (IOError, ValueError):
+            logger.debug("Error when opening token cache, creating new token")
+            token = lib.auth()
+            token_dict = token.token
+            with open(args.token_cache, 'w') as f:
+                json.dump(token_dict, f)
+    else:
+        token = lib.auth()
 
+    if args.taglist:
         if args.taglist:
-            if args.taglist:
-                logger.debug("Attempting to parse tags from the taglist %s" % args.taglist)
-                filename=args.taglist
-                filename=os.path.join(getDataFolderPath(),filename)
-                with open(filename) as f:
-                    tag_list = f.readlines()
-                    tag_list = [x.strip() for x in tag_list]
-            generator = walk_tags(base_path, tag_list, years)
-        else:  # Crawling
-            generator = walk_and_tag_azure(base_path, azure_data_store, token, args.include, args.exclude)
+            logger.debug("Attempting to parse tags from the taglist %s" % args.taglist)
+            filename=args.taglist
+            filename=os.path.join(getDataFolderPath(),filename)
+            with open(filename) as f:
+                tag_list = f.readlines()
+                tag_list = [x.strip() for x in tag_list]
+        generator = walk_tags(base_path, tag_list, years)
+    else:  # Crawling
+        generator = walk_and_tag_azure(base_path, azure_data_store, token, args.include, args.exclude)
 
-        for file_path, tag in generator:
-            measurement_tags = dict()
-            measurement_tags.update({DBSchema.TAGKEY_TAG: tag})
-            measurement_tags.update({DBSchema.TAGKEY_PLANT:Constants.WORKING_PLANT.shortName})
-            measurement_tags.update({DBSchema.TAGKEY_TAGTYPE: DBSchema.TAGVALUE_TAGTYPE_IMS})
-            measurement_tags.update({DBSchema.TAGKEY_DATATYPE: DBSchema.TAGVALUE_DATATYPE_RAW})
-            pool.apply_async(azure_fetch_and_push_to_influx,
-                                 (token, azure_data_store, file_path, measurement_tags, influx_settings,))
+    for file_path, tag in generator:
+        measurement_tags = dict()
+        measurement_tags.update({DBSchema.TAGKEY_TAG: tag})
+        measurement_tags.update({DBSchema.TAGKEY_PLANT:Constants.WORKING_PLANT.shortName})
+        measurement_tags.update({DBSchema.TAGKEY_TAGTYPE: DBSchema.TAGVALUE_TAGTYPE_IMS})
+        measurement_tags.update({DBSchema.TAGKEY_DATATYPE: DBSchema.TAGVALUE_DATATYPE_RAW})
+        pool.apply_async(azure_fetch_and_push_to_influx,
+                             (token, azure_data_store, file_path, measurement_tags, influx_settings,))
 
     pool.close()
     pool.join()

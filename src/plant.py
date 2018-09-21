@@ -27,4 +27,4 @@ class PlantRegistry:
     GINAKROG= ''
 
 if __name__ == '__main__':
-    print(PlantRegistry.GRA.getName())
+    print(PlantRegistry.GRANE.shortName)

@@ -1,0 +1,7 @@
+pytest
+pandas
+azure-mgmt-resource
+azure-mgmt-datalake-store
+azure-datalake-store
+influxdb==5.0.0
+numpy>=1.9.0

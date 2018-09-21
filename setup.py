@@ -14,18 +14,18 @@ def read(file_name):
 
 
 setup(
-    name="example_datascience_project",
+    name="datalake-influx-panda",
     version="0.0.1",
     author='Statoil ASA',
     author_email="Name@statoil.com",
-    description="An example data science project",
+    description="Time series DS pipeline",
     long_description=open('README.md').read(),
-    packages=['examplepackage'],
+    packages=[],
     package_dir={'': 'src'},
     test_suite='tests',
     classifiers=[
         "Development Status :: 3 - Alpha",
         "Topic :: Utilities",
         "License :: OSI Approved :: BSD License",
-    ], install_requires=['numpy', 'pytest', 'pandas']
+    ], install_requires=[]
 )
