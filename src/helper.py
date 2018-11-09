@@ -18,7 +18,14 @@ def getDataFolderPath():
     '''
     return os.path.join(getProjectRootPath(),Constants.DATA_FOLDER_NAME)
 
+def getConfFolderPath():
+    '''
+
+    :return: conf folder absolute path
+    '''
+    return os.path.join(getProjectRootPath(),Constants.CONF_FOLDER_NAME)
 
 if __name__ == '__main__':
     print(getProjectRootPath())
     print(getDataFolderPath())
+    print(getConfFolderPath())

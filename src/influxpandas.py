@@ -5,7 +5,7 @@ from azure_statoil_walker.azure_statoil_walker import *
 from plant import Plant,PlantRegistry
 
 from azure.datalake.store import core, lib, multithread
-from helper import Helper
+from helper import *
 from constants import Constants
 from influxdb import DataFrameClient
 from influxdb import InfluxDBClient

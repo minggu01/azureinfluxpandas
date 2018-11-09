@@ -7,23 +7,24 @@ import logging
 import timeit
 
 import multiprocessing
-import os
 from azure.datalake.store import lib
 from azure.datalake.store.lib import DataLakeCredential
 from influxdb import DataFrameClient
 
-from azure_statoil_walker.azure_statoil_walker import read_df_from_azure, walk_and_tag_azure
+from azure_statoil_walker import read_df_from_azure, walk_and_tag_azure
 from constants import Constants
-
-from helper import getDataFolderPath
+from helper import *
 from dbSchema import DBSchema
+from plant import PlantRegistry
+
 logger = multiprocessing.log_to_stderr()
-logger.setLevel(logging.WARN)
+
+logger.setLevel(logging.DEBUG)
 
 
 def write_to_influx(df, tags, host, port, user, password, db_name, batch_size=10000, time_precision='s'):
     """ Writes a data-frame with tags to influx, with time_precision=s. """
-    print("Write DataFrame with Tags {}, with length: {}".format(tags, len(df)))
+    logger.debug("Write DataFrame with Tags {}, with length: {}".format(tags, len(df)))
     client = DataFrameClient(host, port, user, password, db_name)
     if not client.write_points(df, db_name, tags, time_precision=time_precision, batch_size=batch_size):
         logger.error("Writing to influx failed for tags: {}".format(tags))
@@ -38,13 +39,17 @@ def azure_fetch_and_push_to_influx(token, azure_data_store, file_path, tag_map, 
      """
     df = read_df_from_azure(azure_data_store, file_path, token)
     (host, port, user, password, db_name, batch_size) = influx_settings
+    df=df.resample('1Min').mean()
     write_to_influx(df, tag_map, host, port, user, password, db_name, batch_size)
 
 
 def parse_args():
-    influxAdminPass=os.environ['INFLUX_ADMIN_PASSWORD']
-    tagListFile="GRA_23_CT_0001"
-    starting_year="2010"
+
+    ### area to define the input parameters
+    WORKING_PLANT=PlantRegistry.KRISTIN
+    tagListFile="KRI_27KA001_R01"
+    starting_year="2005"
+    #starting_year = "2017"
     ending_year="2019"
 
     """Parse the args from main."""
@@ -57,16 +62,19 @@ def parse_args():
                         default=Constants.INFLUX_DB_HOST,
                         help='hostname of InfluxDB http API')
     parser.add_argument('--dbname', type=str, required=False,
-                        default=Constants.INFLUX_DB_NAME,
+                        default=DBSchema.DBNAME,
                         help='Influxdb database name')
     parser.add_argument('--port', type=int, required=False, default=Constants.INFLUX_DB_PORT,
                         help='port of InfluxDB http API')
     parser.add_argument('--user', type=str, required=False, default=Constants.INFLUX_DB_USER,
                         help='Username for influxdb')
-    parser.add_argument('--password', type=str, required=False, default=influxAdminPass,
+    parser.add_argument('--password', type=str, required=False, default=Constants.INFLUX_DB_PASSWORD,
                         help='Password for influxdb')
     parser.add_argument('--batch-size', type=int, required=False, default=10000,
                         help='Batch size towards influxdb')
+    parser.add_argument('--plant-sname', type=str, required=False,
+                        default=WORKING_PLANT.shortName,
+                        help='offshore/onshore plant shortname')
     parser.add_argument('--taglist', type=str, required=False, default=tagListFile,
                         help='File with list of tags to download. If false do recursive downloads of all')
     parser.add_argument('--from-year', type=int, required=False, default=starting_year,
@@ -78,7 +86,7 @@ def parse_args():
     parser.add_argument('--exclude', type=str, required=False, default="a^",
                         help='Regexp of files to exclude when doing recursive download')
     parser.add_argument('--base-path', type=str, required=False,
-                        default=Constants.WORKING_PLANT.datalakeBase,
+                        default=WORKING_PLANT.datalakeBase,
                         help='Base path of either recursive search or tags')
     parser.add_argument('--data_store_name', type=str, required=False,
                         default=Constants.DATA_LAKE_STORE,
@@ -107,6 +115,7 @@ def main():
     user = args.user
     password = args.password
     db_name = args.dbname
+    plantSName=args.plant_sname
     batch_size = args.batch_size
 
     # Disable the Statoil proxy
@@ -139,7 +148,7 @@ def main():
         if args.taglist:
             logger.debug("Attempting to parse tags from the taglist %s" % args.taglist)
             filename=args.taglist
-            filename=os.path.join(getDataFolderPath(),filename)
+            filename=os.path.join(getConfFolderPath(),filename)
             with open(filename) as f:
                 tag_list = f.readlines()
                 tag_list = [x.strip() for x in tag_list]
@@ -150,17 +159,18 @@ def main():
     for file_path, tag in generator:
         measurement_tags = dict()
         measurement_tags.update({DBSchema.TAGKEY_TAG: tag})
-        measurement_tags.update({DBSchema.TAGKEY_PLANT:Constants.WORKING_PLANT.shortName})
+        measurement_tags.update({DBSchema.TAGKEY_PLANT:plantSName})
         measurement_tags.update({DBSchema.TAGKEY_TAGTYPE: DBSchema.TAGVALUE_TAGTYPE_IMS})
         measurement_tags.update({DBSchema.TAGKEY_DATATYPE: DBSchema.TAGVALUE_DATATYPE_RAW})
         pool.apply_async(azure_fetch_and_push_to_influx,
                              (token, azure_data_store, file_path, measurement_tags, influx_settings,))
+        #azure_fetch_and_push_to_influx(token, azure_data_store, file_path, measurement_tags, influx_settings)
 
     pool.close()
     pool.join()
 
     after = timeit.default_timer()
-    print("Processing took %s seconds" % (after - before))
+    logger.debug("Processing took %s seconds" % (after - before))
 
 
 def walk_tags(base_path, tag_list, years):

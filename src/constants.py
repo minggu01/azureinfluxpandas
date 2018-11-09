@@ -13,14 +13,14 @@ class Constants:
 
     DATA_FOLDER_NAME= 'data'
     SRC_FOLDER_NAME='src'
+    CONF_FOLDER_NAME='conf'
 
     DATA_LAKE_STORE='dataplatformdlsprod'
     INFLUX_DB_HOST='localhost'
     INFLUX_DB_PORT='8086'
-    INFLUX_DB_NAME='data'
     INFLUX_DB_USER='root'
+    INFLUX_DB_PASSWORD = 'root'
 
-    WORKING_PLANT=PlantRegistry.GRANE
 
 
 

@@ -1,7 +1,7 @@
 class DBSchema:
-    DBNAME='data'
+    DBNAME='timeseries'
     RETENTION_POLICY='autogen'
-    MEASUREMENT='data'
+    MEASUREMENT='tsdata'
 
     TAGKEY_PLANT='plant' # value on this tag shall be the shortname of a plant. Plant.shortName
     TAGKEY_TAG='tag' # the ims tag name, calculated or predicted tag name
