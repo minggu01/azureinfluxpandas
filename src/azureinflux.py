@@ -19,7 +19,7 @@ from plant import PlantRegistry
 
 logger = multiprocessing.log_to_stderr()
 
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.WARNING)
 
 
 def write_to_influx(df, tags, host, port, user, password, db_name, batch_size=10000, time_precision='s'):
@@ -39,15 +39,17 @@ def azure_fetch_and_push_to_influx(token, azure_data_store, file_path, tag_map, 
      """
     df = read_df_from_azure(azure_data_store, file_path, token)
     (host, port, user, password, db_name, batch_size) = influx_settings
-    df=df.resample('1Min').mean()
+    #df=df.resample('1Min').mean()
     write_to_influx(df, tag_map, host, port, user, password, db_name, batch_size)
 
 
 def parse_args():
 
     ### area to define the input parameters
-    WORKING_PLANT=PlantRegistry.KRISTIN
-    tagListFile="KRI_27KA001_R01"
+    WORKING_PLANT=PlantRegistry.GRANE
+    #tagListFile="KRI_27KA001_R01"
+    tagListFile='GRA_23_CT_0001'
+
     starting_year="2005"
     #starting_year = "2017"
     ending_year="2019"

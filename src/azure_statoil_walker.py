@@ -36,31 +36,31 @@ def read_df_from_azure(azure_data_store, file_path, token):
     return df
 
 
-def read_iroc_df_from_azure(azure_data_store, file_path, token):
-    """ Reads the file in file_path from the azure datalake azure_data_store using access token token,
-         attempts to read it as a csv into pandas.
-         """
-    adls_file_system_client = core.AzureDLFileSystem(token, store_name=azure_data_store)
-    try:
-        logger.debug("Attempting to open IROC file {} on {}".format(file_path, azure_data_store))
-        with adls_file_system_client.open(file_path, 'rb') as f:
-            print("Parsing file {}".format(file_path))
-            df = pd.read_csv(f, sep=",")
-            # Note, there are some "digital" sensors with string values, now they are just NaN converted
-            df['value'] = df['value'].apply(pd.to_numeric, errors='coerce')
-            df.dropna(inplace=True, subset=['value'])
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
-            df = df.set_index('timestamp')
-            df['site'], df['service-well'], df['sensor'] = df.tag.str.split('.').str
-            df['service'], df['well'] = df['service-well'].str.split('::').str
-            df = df.drop(['service-well'], axis=1)
-            print(df.head(10))
-    except azure.datalake.store.exceptions.FileNotFoundError:
-        print("Azure File not found: %s" % file_path)
-        logger.warning("Azure File not found: %s" % file_path)
-        df = None
-    return df
-
+# def read_iroc_df_from_azure(azure_data_store, file_path, token):
+#     """ Reads the file in file_path from the azure datalake azure_data_store using access token token,
+#          attempts to read it as a csv into pandas.
+#          """
+#     adls_file_system_client = core.AzureDLFileSystem(token, store_name=azure_data_store)
+#     try:
+#         logger.debug("Attempting to open IROC file {} on {}".format(file_path, azure_data_store))
+#         with adls_file_system_client.open(file_path, 'rb') as f:
+#             print("Parsing file {}".format(file_path))
+#             df = pd.read_csv(f, sep=",")
+#             # Note, there are some "digital" sensors with string values, now they are just NaN converted
+#             df['value'] = df['value'].apply(pd.to_numeric, errors='coerce')
+#             df.dropna(inplace=True, subset=['value'])
+#             df['timestamp'] = pd.to_datetime(df['timestamp'])
+#             df = df.set_index('timestamp')
+#             df['site'], df['service-well'], df['sensor'] = df.tag.str.split('.').str
+#             df['service'], df['well'] = df['service-well'].str.split('::').str
+#             df = df.drop(['service-well'], axis=1)
+#             print(df.head(10))
+#     except azure.datalake.store.exceptions.FileNotFoundError:
+#         print("Azure File not found: %s" % file_path)
+#         logger.warning("Azure File not found: %s" % file_path)
+#         df = None
+#     return df
+#
 
 def walk_and_tag_azure(base_path, azure_data_store, token, include_regexp=".*", exclude_regexp="a^"):
     """Uses walk_azure to generate paths according to its documentation, but also parses the resulting
